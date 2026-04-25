@@ -323,6 +323,13 @@ def main():
     index_html = build_index(totals_by_month, MONTHS, CURRENT_YEAR, CURRENT_MONTH)
     with open(f"{OUT_DIR}/index.html", "w", encoding="utf-8") as f:
         f.write(index_html)
+
+    # Privacy: prevent search engine indexing
+    with open(f"{OUT_DIR}/robots.txt", "w", encoding="utf-8") as f:
+        f.write("User-agent: *\nDisallow: /\n")
+    with open(f"{OUT_DIR}/_headers", "w", encoding="utf-8") as f:
+        f.write("/*\n  X-Robots-Tag: noindex, nofollow, noarchive\n")
+    print("[OK] robots.txt + _headers written (noindex protection)")
     print(f"\n[OK] index.html with {len(totals_by_month)} months")
     print("\nFiles in site/:")
     for f in sorted(os.listdir(OUT_DIR)):

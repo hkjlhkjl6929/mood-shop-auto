@@ -114,8 +114,17 @@ def extract_omni(actions, key="omni_purchase"):
     return 0
 
 
+def merge_key(name):
+    """為合併互動/轉換用的 key：拿掉「互動」「轉換」字樣 + 拿掉預算"""
+    cleaned = re.sub(r'\s*(?:互動|轉換)\s*', ' ', name)
+    cleaned = re.sub(r'\s*\$[\d,]+\s*$', '', cleaned)
+    return re.sub(r'\s+', ' ', cleaned).strip()
+
+
 def aggregate_to_campaigns(rows, month_prefix):
-    """把 adset rows 聚合，並過濾出指定月份開頭的活動"""
+    """把 adset rows 聚合，並過濾出指定月份開頭的活動。
+    同一天同場次（互動 vs 轉換差異）合併為一檔。"""
+    # Step 1: aggregate by raw campaign name first
     by_campaign = defaultdict(list)
     for row in rows:
         c_name = row.get("campaign_name", "")
@@ -132,15 +141,56 @@ def aggregate_to_campaigns(rows, month_prefix):
             "purchases": purchases,
         })
 
-    campaigns = []
+    # Step 2: build raw campaign list
+    raw_campaigns = []
     for c_name, adsets in by_campaign.items():
-        campaigns.append({
+        raw_campaigns.append({
             "name": c_name,
             "budget": parse_budget(c_name),
             "day": parse_day(c_name),
             "category": classify(c_name),
             "adsets": adsets,
         })
+
+    # Step 3: merge by key (date + session, ignore 互動/轉換)
+    merged = {}
+    for c in raw_campaigns:
+        key = merge_key(c["name"])
+        if key not in merged:
+            merged[key] = {
+                "name": key,
+                "budget": 0,
+                "day": c["day"],
+                "category": c["category"],
+                "adsets": [],
+                "_source_names": [],
+            }
+        merged[key]["budget"] += c["budget"]
+        merged[key]["_source_names"].append(c["name"])
+        # apparel takes precedence
+        if c["category"] == "apparel":
+            merged[key]["category"] = "apparel"
+        # merge adsets by adset name
+        for a in c["adsets"]:
+            existing = next((x for x in merged[key]["adsets"] if x["name"] == a["name"]), None)
+            if existing:
+                existing["cost"] += a["cost"]
+                existing["value"] += a["value"]
+                existing["purchases"] += a["purchases"]
+            else:
+                merged[key]["adsets"].append(dict(a))
+
+    # Step 4: finalize names with combined budget at the end
+    campaigns = []
+    for key, c in merged.items():
+        if len(c["_source_names"]) > 1:
+            c["name"] = f'{key} ${c["budget"]:,}'
+        else:
+            # single source: keep original name
+            c["name"] = c["_source_names"][0]
+        del c["_source_names"]
+        campaigns.append(c)
+
     campaigns.sort(key=lambda c: (c["day"], c["name"]))
     return campaigns
 

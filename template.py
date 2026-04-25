@@ -64,12 +64,12 @@ TEMPLATE = """<!DOCTYPE html>
     margin-bottom: 8px;
   }}
   .stat-box {{ padding: 8px 10px; border-radius: 6px; text-align: center; }}
-  .stat-box.apparel {{ background: #eff6ff; border: 1px solid #bfdbfe; }}
-  .stat-box.other   {{ background: #fef3c7; border: 1px solid #fde68a; }}
+  .stat-box.apparel {{ background: #fef3c7; border: 1px solid #fde68a; }}
+  .stat-box.other   {{ background: #eff6ff; border: 1px solid #bfdbfe; }}
   .stat-box .slabel {{ font-size: 10px; color: #666; margin-bottom: 2px; }}
   .stat-box .svalue {{ font-size: 14px; font-weight: 700; }}
-  .stat-box.apparel .svalue {{ color: #1e3a8a; }}
-  .stat-box.other .svalue {{ color: #78350f; }}
+  .stat-box.apparel .svalue {{ color: #78350f; }}
+  .stat-box.other .svalue {{ color: #1e3a8a; }}
   .chart-container {{ position: relative; height: 260px; }}
   .chart-container.tall {{ height: 340px; }}
   .table-wrap {{ overflow-x: auto; }}
@@ -90,6 +90,17 @@ TEMPLATE = """<!DOCTYPE html>
   tr.adset td {{ color: #475569; padding: 5px 10px; border-bottom: 1px solid #eef1f4; }}
   tr.adset td:first-child {{ text-align: left; padding-left: 34px; font-weight: 400; color: #64748b; }}
   tr.adset:hover td {{ background: #f1f5f9; }}
+  .stat-box .multi-stats {{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; margin-top: 4px; }}
+  .stat-box .ms-item {{ font-size: 11px; }}
+  .stat-box .ms-label {{ font-size: 9px; color: #888; display: block; margin-bottom: 1px; font-weight: 400; }}
+  .stat-box .ms-value {{ font-weight: 700; font-size: 12px; }}
+  .stat-box.apparel .ms-value {{ color: #78350f; }}
+  .stat-box.other .ms-value {{ color: #1e3a8a; }}
+  /* subtotal variants */
+  tr.subtotal.apparel {{ background: #fef3c7; }}
+  tr.subtotal.apparel td {{ color: #78350f; border-top: 1px solid #fde68a; border-bottom: 1px solid #fde68a; }}
+  tr.subtotal.other {{ background: #eff6ff; }}
+  tr.subtotal.other td {{ color: #1e3a8a; border-top: 1px solid #bfdbfe; border-bottom: 1px solid #bfdbfe; }}
   tr.subtotal {{ font-weight: 700; background: #eff6ff; }}
   tr.subtotal td {{ color: #1e3a8a; border-top: 1px solid #bfdbfe; border-bottom: 1px solid #bfdbfe; font-size: 11.5px; }}
   tr.subtotal td:first-child {{ text-align: left; padding-left: 14px; font-style: italic; }}
@@ -133,8 +144,14 @@ TEMPLATE = """<!DOCTYPE html>
 <div class="compare-wrap">
   <div class="compare-card">
     <div class="compare-stats">
-      <div class="stat-box apparel"><div class="slabel">服飾（{apparel_count} 檔）</div><div class="svalue" id="apparelSummary">—</div></div>
-      <div class="stat-box other"><div class="slabel">異業（{other_count} 檔）</div><div class="svalue" id="otherSummary">—</div></div>
+      <div class="stat-box apparel">
+        <div class="slabel">服飾（{apparel_count} 檔）</div>
+        <div class="multi-stats" id="apparelSummary">—</div>
+      </div>
+      <div class="stat-box other">
+        <div class="slabel">異業（{other_count} 檔）</div>
+        <div class="multi-stats" id="otherSummary">—</div>
+      </div>
     </div>
     <div class="chart-container"><canvas id="spendRevChart"></canvas></div>
   </div>
@@ -229,20 +246,33 @@ Object.keys(groupedCampaigns).sort((a,b) => a - b).forEach(gKey => {{
       }}
     }});
   }});
-  const subBudget = list.reduce((s, c) => s + c.budget, 0);
-  const subCost = list.reduce((s, c) => s + c.cost, 0);
-  const subValue = list.reduce((s, c) => s + c.value, 0);
-  const subPurchases = list.reduce((s, c) => s + c.purchases, 0);
-  const subRoas = subCost > 0 ? subValue / subCost : null;
-  const subCpp = subPurchases > 0 ? subCost / subPurchases : null;
-  const trSub = document.createElement("tr");
-  trSub.className = "subtotal";
-  trSub.innerHTML = `<td>${{list[0].groupLabel}}</td><td>${{fmt(subBudget)}}</td><td>${{fmt(subCost)}}</td><td>${{fmt(subValue)}}</td><td>${{fmtRoas(subRoas)}}</td><td>${{fmtNum(subPurchases)}}</td><td>${{fmt(subCpp)}}</td>`;
-  tbody.appendChild(trSub);
-  grandBudget += subBudget;
-  grandCost += subCost;
-  grandValue += subValue;
-  grandPurchases += subPurchases;
+  // Split subtotal by category if group has both 服飾 and 異業
+  const apparelList = list.filter(c => c.category === "apparel");
+  const otherList = list.filter(c => c.category === "other");
+  const baseLabel = list[0].groupLabel.replace(" 小計", "");
+
+  function emitSub(arr, suffix, cls) {{
+    if (arr.length === 0) return;
+    const sB = arr.reduce((s, c) => s + c.budget, 0);
+    const sC = arr.reduce((s, c) => s + c.cost, 0);
+    const sV = arr.reduce((s, c) => s + c.value, 0);
+    const sP = arr.reduce((s, c) => s + c.purchases, 0);
+    const sR = sC > 0 ? sV / sC : null;
+    const sCpp = sP > 0 ? sC / sP : null;
+    const tr = document.createElement("tr");
+    tr.className = "subtotal" + (cls ? " " + cls : "");
+    const lbl = suffix ? `${{baseLabel}} ${{suffix}}小計` : list[0].groupLabel;
+    tr.innerHTML = `<td>${{lbl}}</td><td>${{fmt(sB)}}</td><td>${{fmt(sC)}}</td><td>${{fmt(sV)}}</td><td>${{fmtRoas(sR)}}</td><td>${{fmtNum(sP)}}</td><td>${{fmt(sCpp)}}</td>`;
+    tbody.appendChild(tr);
+    grandBudget += sB; grandCost += sC; grandValue += sV; grandPurchases += sP;
+  }}
+
+  if (apparelList.length > 0 && otherList.length > 0) {{
+    emitSub(apparelList, "服飾", "apparel");
+    emitSub(otherList, "異業", "other");
+  }} else {{
+    emitSub(list, "", "");
+  }}
 }});
 
 const grandRoas = grandCost > 0 ? grandValue / grandCost : null;
@@ -262,16 +292,24 @@ try {{
     return {{ count: list.length, cost, value, purchases, cpp: purchases > 0 ? cost/purchases : 0 }};
   }}
   const apparel = agg("apparel"), other = agg("other");
-  document.getElementById("apparelSummary").textContent = `花費 ${{fmt(apparel.cost)}}`;
-  document.getElementById("otherSummary").textContent = `花費 ${{fmt(other.cost)}}`;
+  const apparelRoas = apparel.cost > 0 ? apparel.value / apparel.cost : 0;
+  const otherRoas = other.cost > 0 ? other.value / other.cost : 0;
+  document.getElementById("apparelSummary").innerHTML =
+    `<div class="ms-item"><span class="ms-label">花費</span><span class="ms-value">${{fmt(apparel.cost)}}</span></div>` +
+    `<div class="ms-item"><span class="ms-label">轉換值</span><span class="ms-value">${{fmt(apparel.value)}}</span></div>` +
+    `<div class="ms-item"><span class="ms-label">ROAS</span><span class="ms-value">${{apparelRoas.toFixed(2)}}x</span></div>`;
+  document.getElementById("otherSummary").innerHTML =
+    `<div class="ms-item"><span class="ms-label">花費</span><span class="ms-value">${{fmt(other.cost)}}</span></div>` +
+    `<div class="ms-item"><span class="ms-label">轉換值</span><span class="ms-value">${{fmt(other.value)}}</span></div>` +
+    `<div class="ms-item"><span class="ms-label">ROAS</span><span class="ms-value">${{otherRoas.toFixed(2)}}x</span></div>`;
   document.getElementById("apparelPurch").textContent = `${{apparel.purchases}} 筆 / CPP ${{fmt(apparel.cpp)}}`;
   document.getElementById("otherPurch").textContent = `${{other.purchases}} 筆 / CPP ${{fmt(other.cpp)}}`;
 
   new Chart(document.getElementById("spendRevChart"), {{
     type: "bar",
     data: {{ labels: ["花費", "轉換值"], datasets: [
-      {{ label: `服飾（${{apparel.count}} 檔）`, data: [apparel.cost, apparel.value], backgroundColor: "#1e3a8a", borderRadius: 4 }},
-      {{ label: `異業（${{other.count}} 檔）`, data: [other.cost, other.value], backgroundColor: "#d97706", borderRadius: 4 }}
+      {{ label: `服飾（${{apparel.count}} 檔）`, data: [apparel.cost, apparel.value], backgroundColor: "#d97706", borderRadius: 4 }},
+      {{ label: `異業（${{other.count}} 檔）`, data: [other.cost, other.value], backgroundColor: "#1e3a8a", borderRadius: 4 }}
     ]}},
     options: {{ maintainAspectRatio: false, responsive: true,
       plugins: {{ title: {{ display: true, text: "花費 vs 轉換值", font: {{ size: 12, weight: "bold" }} }}, legend: {{ position: "bottom", labels: {{ font: {{ size: 10 }}, boxWidth: 12 }} }}, tooltip: {{ callbacks: {{ label: ctx => ctx.dataset.label + ": $" + ctx.parsed.y.toLocaleString() }} }} }},
@@ -282,8 +320,8 @@ try {{
   new Chart(document.getElementById("purchCppChart"), {{
     type: "bar",
     data: {{ labels: ["購買次數（筆）", "每次購買成本（TWD）"], datasets: [
-      {{ label: "服飾", data: [apparel.purchases, apparel.cpp], backgroundColor: "#1e3a8a", borderRadius: 4 }},
-      {{ label: "異業", data: [other.purchases, other.cpp], backgroundColor: "#d97706", borderRadius: 4 }}
+      {{ label: "服飾", data: [apparel.purchases, apparel.cpp], backgroundColor: "#d97706", borderRadius: 4 }},
+      {{ label: "異業", data: [other.purchases, other.cpp], backgroundColor: "#1e3a8a", borderRadius: 4 }}
     ]}},
     options: {{ maintainAspectRatio: false, responsive: true,
       plugins: {{ title: {{ display: true, text: "購買次數 & 每次購買成本", font: {{ size: 12, weight: "bold" }} }}, legend: {{ position: "bottom", labels: {{ font: {{ size: 10 }}, boxWidth: 12 }} }},
@@ -326,8 +364,8 @@ try {{
       }}
     }});
   }}
-  adsetChart("apparelAdsetChart", apparelAdsets, "#1e3a8a");
-  adsetChart("otherAdsetChart", otherAdsets, "#d97706");
+  adsetChart("apparelAdsetChart", apparelAdsets, "#d97706");
+  adsetChart("otherAdsetChart", otherAdsets, "#1e3a8a");
 }} catch (e) {{ console.error("Chart init failed:", e); }}
 </script>
 </body>

@@ -114,12 +114,12 @@ TEMPLATE = """<!DOCTYPE html>
   <a href="index.html">← 返回總覽</a>
   <span class="sep">│</span>
 {month_links}
-  <span style="margin-left:auto; color:#6b7280; font-size:11px;">目前檢視：{{title}}</span>
+  <span style="margin-left:auto; color:#6b7280; font-size:11px;">目前檢視：{title}</span>
 </div>
 
 <!-- PAGE 1 -->
 <div class="page">
-<header><h1>{{title}}</h1></header>
+<header><h1>{title}</h1></header>
 
 <div class="kpi-grid">
   <div class="kpi spend"><div class="label">總花費</div><div class="value">${total_cost:,}<span class="unit"> TWD</span></div></div>

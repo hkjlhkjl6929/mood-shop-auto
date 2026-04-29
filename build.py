@@ -112,23 +112,26 @@ def fetch_insights(month, year, end_date):
 
 
 def fetch_transactions(month, year):
-    """抓取 /transactions 端點：該月所有信用卡交易"""
+    """抓取 /transactions 端點：該月所有信用卡交易。
+    FB API 要 Unix timestamp（整數），不是日期字串。"""
     from calendar import monthrange
     last_day = monthrange(year, month)[1]
-    since = f"{year}-{month:02d}-01"
-    until = f"{year}-{month:02d}-{last_day:02d}"
+    since_dt = datetime(year, month, 1)
+    until_dt = datetime(year, month, last_day, 23, 59, 59)
+    since_ts = int(since_dt.timestamp())
+    until_ts = int(until_dt.timestamp())
     url = f"{BASE}/{FB_ACCOUNT_ID}/transactions"
     params = {
         "access_token": FB_TOKEN,
         "fields": "id,time,billing_period,billing_reason,charge_type,amount,status,payment_option",
-        "time_start": since,
-        "time_stop": until,
+        "time_start": since_ts,
+        "time_stop": until_ts,
         "limit": 200,
     }
     rows = []
     while url:
         try:
-            data = fb_request(url, params, f"transactions {since}..{until}")
+            data = fb_request(url, params, f"transactions {year}-{month:02d}")
         except Exception as e:
             print(f"  [WARN] transactions fetch failed: {e}")
             return []

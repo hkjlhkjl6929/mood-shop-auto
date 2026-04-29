@@ -848,9 +848,16 @@ APP_TEMPLATE = """<!DOCTYPE html>
     /* Month picker scroll */
     .month-picker {{ overflow-x: auto; max-width: 100%; }}
 
-    /* Table font */
-    .roi-table {{ font-size: 12px; }}
-    .roi-table th, .roi-table td {{ padding: 6px 4px; }}
+    /* compare 區塊：服飾/異業改直向堆疊 */
+    .compare-stats {{ grid-template-columns: 1fr !important; }}
+
+    /* 活動明細表壓縮 + 隱藏 CPP（最後一欄） */
+    .roi-table {{ font-size: 10.5px; table-layout: fixed; width: 100%; }}
+    .roi-table th, .roi-table td {{ padding: 5px 2px; white-space: normal; word-break: break-word; }}
+    .roi-table th {{ font-size: 9.5px; }}
+    .roi-table td:first-child, .roi-table th:first-child {{ font-size: 11px; padding-left: 6px; padding-right: 4px; }}
+    /* 隱藏 CPP 欄（第 7 欄） */
+    .roi-table th:nth-child(7), .roi-table td:nth-child(7) {{ display: none; }}
     .tx-table {{ font-size: 12.5px; }}
   }}
 

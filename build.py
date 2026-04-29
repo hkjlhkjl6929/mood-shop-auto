@@ -19,8 +19,12 @@ FB_ACCOUNT_ID = os.environ.get("FB_ACCOUNT_ID", "act_3518918538334496")
 if not FB_ACCOUNT_ID.startswith("act_"):
     FB_ACCOUNT_ID = "act_" + FB_ACCOUNT_ID
 
-# 自己的信用卡末 4 碼（逗號分隔），用來過濾代刷交易
+# 過濾規則（兩種，二擇一即可）：
+# A) MY_CARD_LAST4：白名單，只列出自己的卡（多張用逗號分隔）
+# B) EXCLUDE_CARD_LAST4：黑名單，只列出要排除的卡（如客戶的卡）
+# 推薦用 B（黑名單），自己新辦卡時不用每次更新
 MY_CARD_LAST4 = [s.strip() for s in os.environ.get("MY_CARD_LAST4", "").split(",") if s.strip()]
+EXCLUDE_CARD_LAST4 = [s.strip() for s in os.environ.get("EXCLUDE_CARD_LAST4", "").split(",") if s.strip()]
 
 API_VERSION = "v21.0"
 BASE = f"https://graph.facebook.com/{API_VERSION}"
@@ -112,32 +116,55 @@ def fetch_insights(month, year, end_date):
 
 
 def fetch_transactions(month, year):
-    """抓取 /transactions 端點：該月所有信用卡交易。
-    FB API 要 Unix timestamp（整數），不是日期字串。"""
-    from calendar import monthrange
-    last_day = monthrange(year, month)[1]
-    since_dt = datetime(year, month, 1)
-    until_dt = datetime(year, month, last_day, 23, 59, 59)
-    since_ts = int(since_dt.timestamp())
-    until_ts = int(until_dt.timestamp())
-    url = f"{BASE}/{FB_ACCOUNT_ID}/transactions"
-    params = {
-        "access_token": FB_TOKEN,
-        "fields": "id,time,billing_period,billing_reason,charge_type,amount,status,payment_option",
-        "time_start": since_ts,
-        "time_stop": until_ts,
-        "limit": 200,
-    }
+    """讀取 transactions/YYYY-MM.csv（從 FB Ads Manager 下載的發票摘要）
+    格式範例：
+      日期,交易編號,付款方式,金額,幣別
+      2026/4/21,xxx,Visa ···· 5208,"8,873",TWD
+    """
+    import csv
+    csv_path = os.path.join("transactions", f"{year}-{month:02d}.csv")
+    if not os.path.exists(csv_path):
+        print(f"  [INFO] CSV not found: {csv_path}")
+        print(f"         Upload {year}-{month:02d}.csv to transactions/ folder to enable billing")
+        return []
+
     rows = []
-    while url:
-        try:
-            data = fb_request(url, params, f"transactions {year}-{month:02d}")
-        except Exception as e:
-            print(f"  [WARN] transactions fetch failed: {e}")
-            return []
-        rows.extend(data.get("data", []))
-        next_url = data.get("paging", {}).get("next")
-        url, params = next_url, None
+    cards_seen = {}  # last4 -> total amount (for diagnostic)
+    with open(csv_path, "r", encoding="utf-8-sig") as f:
+        reader = csv.reader(f)
+        in_data = False
+        for r in reader:
+            if len(r) >= 5 and r[0].strip() == "日期":
+                in_data = True
+                continue
+            if not in_data or len(r) < 5:
+                continue
+            date = r[0].strip()
+            payment = r[2].strip()
+            amount_str = r[3].strip().replace(",", "")
+            # Skip total row (date is empty)
+            if not date:
+                continue
+            # Extract card last 4 (after "···· ")
+            m_card = re.search(r"(\d{4})\s*$", payment)
+            card4 = m_card.group(1) if m_card else None
+            try:
+                amount = float(amount_str)
+            except ValueError:
+                continue
+            cards_seen[card4 or "?"] = cards_seen.get(card4 or "?", 0) + amount
+            rows.append({
+                "date": date.replace("/", "-"),  # 2026/4/21 → 2026-4-21
+                "amount": int(round(amount)),
+                "card": card4 or "?",
+                "payment_method": payment,
+                "status": "已付款",
+            })
+    print(f"  [CSV] Read {len(rows)} transactions from {csv_path}")
+    if cards_seen:
+        sorted_cards = sorted(cards_seen.items(), key=lambda x: -x[1])
+        cards_str = ", ".join(f"{c}:${int(round(a)):,}" for c, a in sorted_cards)
+        print(f"  [CSV] Cards seen: {cards_str}")
     return rows
 
 
@@ -155,29 +182,29 @@ def calc_billing(month, year, ad_cost):
     transactions = fetch_transactions(month, year)
     print(f"  Got {len(transactions)} transactions")
 
-    # Filter: status='success' AND card last 4 in MY_CARD_LAST4
+    # Filter rules:
+    # 1. EXCLUDE_CARD_LAST4 takes priority: drop any card in this list
+    # 2. If MY_CARD_LAST4 is set, only keep cards in that list (whitelist)
+    # 3. If neither set, keep everything
     my_tx = []
     excluded_count = 0
+    excluded_total = 0
     for t in transactions:
-        status = t.get("status", "")
-        if status not in ("success", "Successful", "已付款", "completed"):
+        card4 = t.get("card", "?")
+        if EXCLUDE_CARD_LAST4 and card4 in EXCLUDE_CARD_LAST4:
+            excluded_count += 1
+            excluded_total += t["amount"]
             continue
-        po = t.get("payment_option", "")
-        card4 = parse_card_last4(po)
         if MY_CARD_LAST4 and card4 not in MY_CARD_LAST4:
             excluded_count += 1
+            excluded_total += t["amount"]
             continue
-        amount = t.get("amount", {})
-        if isinstance(amount, dict):
-            amt = float(amount.get("total", amount.get("offsetted_amount", 0)) or 0)
-        else:
-            amt = float(amount or 0)
         my_tx.append({
-            "date": t.get("time", "")[:10],
-            "amount": round(amt),
-            "card": card4 or "?",
+            "date": t["date"],
+            "amount": t["amount"],
+            "card": card4,
         })
-    print(f"  My transactions: {len(my_tx)} (excluded {excluded_count} from other cards)")
+    print(f"  My transactions: {len(my_tx)} (excluded {excluded_count}, ${excluded_total:,})")
 
     card_total = sum(t["amount"] for t in my_tx)
     foreign_fee = round(card_total * 0.015)

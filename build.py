@@ -53,23 +53,42 @@ def classify(name):
     return "apparel" if "服飾" in after_date else "other"
 
 
-def fb_request(url, params=None, what=""):
-    """Wrapper that prints real FB error messages."""
-    try:
-        r = requests.get(url, params=params, timeout=60)
-        if not r.ok:
+def fb_request(url, params=None, what="", max_retries=4):
+    """Wrapper with retry for transient errors (rate limit, etc.)"""
+    delay = 5
+    for attempt in range(max_retries):
+        try:
+            r = requests.get(url, params=params, timeout=60)
+            if r.ok:
+                return r.json()
+            # Try parse error
             try:
                 err = r.json()
             except Exception:
                 err = {"raw": r.text}
+            err_obj = err.get("error", {}) if isinstance(err, dict) else {}
+            is_transient = (
+                err_obj.get("is_transient") or
+                err_obj.get("code") in (4, 17, 32, 613, 80004) or
+                r.status_code in (429, 500, 502, 503, 504)
+            )
+            if is_transient and attempt < max_retries - 1:
+                print(f"  [RETRY {attempt+1}/{max_retries}] {what}: transient error (code={err_obj.get('code')}), wait {delay}s...")
+                time.sleep(delay)
+                delay *= 2  # exponential backoff
+                continue
             print(f"[FB API ERROR on {what}]")
             print(f"  Status: {r.status_code}")
             print(f"  Body: {json.dumps(err, ensure_ascii=False, indent=2)}")
             r.raise_for_status()
-        return r.json()
-    except requests.exceptions.RequestException as e:
-        print(f"[Request failed on {what}]: {e}")
-        raise
+        except requests.exceptions.RequestException as e:
+            if attempt < max_retries - 1:
+                print(f"  [RETRY {attempt+1}/{max_retries}] {what}: connection error, wait {delay}s...")
+                time.sleep(delay)
+                delay *= 2
+                continue
+            print(f"[Request failed on {what}]: {e}")
+            raise
 
 
 def fetch_all_campaigns(year):

@@ -854,15 +854,24 @@ APP_TEMPLATE = """<!DOCTYPE html>
     /* compare 區塊：服飾/異業改直向堆疊 */
     .compare-stats {{ grid-template-columns: 1fr !important; }}
 
-    /* 活動明細表壓縮 + 隱藏 CPP（最後一欄） */
-    .roi-table {{ font-size: 10.5px; table-layout: fixed; width: 100%; }}
-    .roi-table th, .roi-table td {{ padding: 5px 2px; white-space: nowrap; }}
-    .roi-table th {{ font-size: 9.5px; }}
-    /* 第一欄（活動名稱）允許換行 */
-    .roi-table td:first-child {{ font-size: 11px; padding-left: 6px; padding-right: 4px; white-space: normal; word-break: break-word; line-height: 1.3; }}
-    .roi-table th:first-child {{ font-size: 9.5px; padding-left: 6px; }}
+    /* 活動明細表壓縮 + 隱藏 CPP */
+    /* 縮小 main / card 的 padding 給表格更多空間 */
+    .main {{ padding: 14px 6px 24px; }}
+    .card {{ padding: 14px 10px; }}
+    .roi-table {{ font-size: 10px; table-layout: fixed; width: 100%; }}
+    .roi-table th, .roi-table td {{ padding: 5px 1px; white-space: nowrap; overflow: hidden; text-overflow: clip; }}
+    .roi-table th {{ font-size: 9px; }}
+    /* 明確欄寬：活動名稱寬一點，數字欄按需要分配 */
+    .roi-table th:nth-child(1), .roi-table td:nth-child(1) {{ width: 27%; padding-left: 4px; padding-right: 2px; font-size: 10px; white-space: normal; word-break: break-word; line-height: 1.3; }}
+    .roi-table th:nth-child(2), .roi-table td:nth-child(2) {{ width: 13%; }}
+    .roi-table th:nth-child(3), .roi-table td:nth-child(3) {{ width: 13%; }}
+    .roi-table th:nth-child(4), .roi-table td:nth-child(4) {{ width: 20%; }}
+    .roi-table th:nth-child(5), .roi-table td:nth-child(5) {{ width: 13%; }}
+    .roi-table th:nth-child(6), .roi-table td:nth-child(6) {{ width: 14%; }}
     /* 隱藏 CPP 欄（第 7 欄） */
     .roi-table th:nth-child(7), .roi-table td:nth-child(7) {{ display: none; }}
+    /* 總計第一欄允許換行（總計 / (9 檔)） */
+    .roi-table tr.total td:first-child {{ white-space: normal; line-height: 1.3; }}
     .tx-table {{ font-size: 12.5px; }}
   }}
 
@@ -1166,7 +1175,8 @@ function renderRoi() {{
   }});
   const grandRoas = gC > 0 ? gV/gC : null, grandCpp = gP > 0 ? gC/gP : null;
   const trT = document.createElement('tr'); trT.className = 'total';
-  trT.innerHTML = `<td>總計（${{campaigns.length}} 檔）</td><td>${{fmt(gB)}}</td><td>${{fmt(gC)}}</td><td>${{fmt(gV)}}</td><td>${{fmtRoas(grandRoas)}}</td><td>${{fmtNum(gP)}}</td><td>${{fmt(grandCpp)}}</td>`;
+  const totalLabel = (window.innerWidth <= 768) ? `總計<br>(${{campaigns.length}} 檔)` : `總計（${{campaigns.length}} 檔）`;
+  trT.innerHTML = `<td>${{totalLabel}}</td><td>${{fmt(gB)}}</td><td>${{fmt(gC)}}</td><td>${{fmt(gV)}}</td><td>${{fmtRoas(grandRoas)}}</td><td>${{fmtNum(gP)}}</td><td>${{fmt(grandCpp)}}</td>`;
   tbody.appendChild(trT);
 
   // Charts

@@ -19,6 +19,9 @@ FB_ACCOUNT_ID = os.environ.get("FB_ACCOUNT_ID", "act_3518918538334496")
 if not FB_ACCOUNT_ID.startswith("act_"):
     FB_ACCOUNT_ID = "act_" + FB_ACCOUNT_ID
 
+# 自己的信用卡末 4 碼（逗號分隔），用來過濾代刷交易
+MY_CARD_LAST4 = [s.strip() for s in os.environ.get("MY_CARD_LAST4", "").split(",") if s.strip()]
+
 API_VERSION = "v21.0"
 BASE = f"https://graph.facebook.com/{API_VERSION}"
 
@@ -103,6 +106,110 @@ def fetch_insights(month, year, end_date):
         next_url = data.get("paging", {}).get("next")
         url, params = next_url, None
     return rows
+
+
+
+
+
+def fetch_transactions(month, year):
+    """抓取 /transactions 端點：該月所有信用卡交易"""
+    from calendar import monthrange
+    last_day = monthrange(year, month)[1]
+    since = f"{year}-{month:02d}-01"
+    until = f"{year}-{month:02d}-{last_day:02d}"
+    url = f"{BASE}/{FB_ACCOUNT_ID}/transactions"
+    params = {
+        "access_token": FB_TOKEN,
+        "fields": "id,time,billing_period,billing_reason,charge_type,amount,status,payment_option",
+        "time_start": since,
+        "time_stop": until,
+        "limit": 200,
+    }
+    rows = []
+    while url:
+        try:
+            data = fb_request(url, params, f"transactions {since}..{until}")
+        except Exception as e:
+            print(f"  [WARN] transactions fetch failed: {e}")
+            return []
+        rows.extend(data.get("data", []))
+        next_url = data.get("paging", {}).get("next")
+        url, params = next_url, None
+    return rows
+
+
+def parse_card_last4(payment_option_str):
+    """從 payment_option 抓出末 4 碼。格式可能是 "Visa - 1234" 或 JSON-like"""
+    if not payment_option_str:
+        return None
+    # Try to extract last 4 digits
+    m = re.search(r'(\d{4})\s*$', str(payment_option_str))
+    return m.group(1) if m else None
+
+
+def calc_billing(month, year, ad_cost):
+    """算出該月的代刷費 + 代操費 + 請款合計"""
+    transactions = fetch_transactions(month, year)
+    print(f"  Got {len(transactions)} transactions")
+
+    # Filter: status='success' AND card last 4 in MY_CARD_LAST4
+    my_tx = []
+    excluded_count = 0
+    for t in transactions:
+        status = t.get("status", "")
+        if status not in ("success", "Successful", "已付款", "completed"):
+            continue
+        po = t.get("payment_option", "")
+        card4 = parse_card_last4(po)
+        if MY_CARD_LAST4 and card4 not in MY_CARD_LAST4:
+            excluded_count += 1
+            continue
+        amount = t.get("amount", {})
+        if isinstance(amount, dict):
+            amt = float(amount.get("total", amount.get("offsetted_amount", 0)) or 0)
+        else:
+            amt = float(amount or 0)
+        my_tx.append({
+            "date": t.get("time", "")[:10],
+            "amount": round(amt),
+            "card": card4 or "?",
+        })
+    print(f"  My transactions: {len(my_tx)} (excluded {excluded_count} from other cards)")
+
+    card_total = sum(t["amount"] for t in my_tx)
+    foreign_fee = round(card_total * 0.015)
+    rebate = round(card_total * 0.003)
+    card_actual = card_total + foreign_fee - rebate
+
+    # 代操費級距
+    if ad_cost <= 100000:
+        pct, tier = 0.20, "0-10萬"
+    elif ad_cost <= 300000:
+        pct, tier = 0.15, "10-30萬"
+    elif ad_cost <= 600000:
+        pct, tier = 0.13, "30-60萬"
+    else:
+        pct, tier = 0.10, "60萬以上"
+    fee_pretax = round(ad_cost * pct)
+    fee_tax = round(fee_pretax * 0.05)
+    fee_total = fee_pretax + fee_tax
+
+    grand_total = card_actual + fee_total
+
+    return {
+        "card_transactions": my_tx,
+        "card_total": card_total,
+        "foreign_fee": foreign_fee,
+        "rebate": rebate,
+        "card_actual": card_actual,
+        "ad_cost": ad_cost,
+        "tier": tier,
+        "service_pct": pct,
+        "fee_pretax": fee_pretax,
+        "fee_tax": fee_tax,
+        "fee_total": fee_total,
+        "grand_total": grand_total,
+    }
 
 
 def extract_omni(actions, key="omni_purchase"):
@@ -266,6 +373,8 @@ def main():
             last_day_per_month[mm] = dd
 
     totals_by_month = {}
+    global CAMPAIGNS_BY_MONTH
+    CAMPAIGNS_BY_MONTH = {}
 
     for month in MONTHS:
         print(f"\n--- {CURRENT_YEAR}/{month:02d} ---")
@@ -294,35 +403,49 @@ def main():
             print(f"  No campaigns to build for {month}, skip")
             continue
 
+        ym = f"{CURRENT_YEAR}-{month:02d}"
+        CAMPAIGNS_BY_MONTH[ym] = {"campaigns": campaigns, "title": "", "note": ""}
+
         title = f"Mood Shop {month}月廣告成效"
         note = f"歸因窗 7 天（{CURRENT_YEAR}-{month:02d}-01 ~ {end_date.strftime('%Y-%m-%d')}）。"
         if last_day + 7 > month_end_day and month == CURRENT_MONTH:
             note += f" {month}/{last_day} 場次的歸因窗尚未結束，數據仍在累積。"
 
-        ym = f"{CURRENT_YEAR}-{month:02d}"
-        html = build_dashboard(title, campaigns, note, ym)
-        with open(f"{OUT_DIR}/{ym}.html", "w", encoding="utf-8") as f:
-            f.write(html)
-
         cost = sum(sum(a["cost"] for a in c["adsets"]) for c in campaigns)
         value = sum(sum(a["value"] for a in c["adsets"]) for c in campaigns)
         purchases = sum(sum(a["purchases"] for a in c["adsets"]) for c in campaigns)
+        # 計算該月代刷費 + 代操費
+        billing = calc_billing(month, CURRENT_YEAR, cost)
+
         totals_by_month[ym] = {
             "cost": cost, "value": value, "purchases": purchases,
             "roas": value / cost if cost > 0 else 0,
             "cpp": cost / purchases if purchases > 0 else 0,
             "count": len(campaigns),
+            "billing": billing,
         }
         print(f"  [OK] {ym}.html (cost={cost:,}, value={value:,}, ROAS={value/cost if cost>0 else 0:.2f}x)")
+        print(f"       Billing: card={billing['card_actual']:,}, service_fee={billing['fee_total']:,}, total={billing['grand_total']:,}")
         time.sleep(2)
 
     if not totals_by_month:
         print("\nERROR: No data built for any month. Check FB token and account.")
         raise SystemExit(1)
 
-    index_html = build_index(totals_by_month, MONTHS, CURRENT_YEAR, CURRENT_MONTH)
+    available_months = sorted([int(ym.split("-")[1]) for ym in totals_by_month.keys()])
+
+    # === Generate single-page app (index.html with all sections) ===
+    from template import build_app
+    app_html = build_app(
+        year=CURRENT_YEAR,
+        current_month=CURRENT_MONTH,
+        months_data=totals_by_month,
+        campaigns_by_month=CAMPAIGNS_BY_MONTH,
+        available_months=available_months,
+    )
     with open(f"{OUT_DIR}/index.html", "w", encoding="utf-8") as f:
-        f.write(index_html)
+        f.write(app_html)
+    print(f"\n[OK] index.html (single-page app) with {len(totals_by_month)} months")
 
     # Privacy: prevent search engine indexing
     with open(f"{OUT_DIR}/robots.txt", "w", encoding="utf-8") as f:

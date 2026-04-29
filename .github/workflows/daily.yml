@@ -37,6 +37,8 @@ jobs:
         env:
           FB_ACCESS_TOKEN: ${{ secrets.FB_ACCESS_TOKEN }}
           FB_ACCOUNT_ID: ${{ secrets.FB_ACCOUNT_ID }}
+          MY_CARD_LAST4: ${{ secrets.MY_CARD_LAST4 }}
+          EXCLUDE_CARD_LAST4: ${{ secrets.EXCLUDE_CARD_LAST4 }}
         run: python build.py
 
       - name: Setup Pages

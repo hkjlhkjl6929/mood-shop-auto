@@ -261,8 +261,10 @@ Object.keys(groupedCampaigns).sort((a,b) => a - b).forEach(gKey => {{
 
     const tr = document.createElement("tr");
     tr.className = "subtotal" + (groupHasMixed ? " " + currentCat : "");
-    const dispLabel = (window.innerWidth <= 768) ? "小計" : label;
-      tr.innerHTML = `<td>${{dispLabel}}</td><td>${{fmt(sB)}}</td><td>${{fmt(sC)}}</td><td>${{fmt(sV)}}</td><td>${{fmtRoas(sR)}}</td><td>${{fmtNum(sP)}}</td><td>${{fmt(sCpp)}}</td>`;
+    const isMobileSub = window.innerWidth <= 768;
+      const dispLabel = isMobileSub ? "小計" : label;
+      const subRoasFmt = isMobileSub ? (sR == null || !isFinite(sR) ? "—" : sR.toFixed(2)) : fmtRoas(sR);
+      tr.innerHTML = `<td>${{dispLabel}}</td><td>${{fmt(sB)}}</td><td>${{fmt(sC)}}</td><td>${{fmt(sV)}}</td><td>${{subRoasFmt}}</td><td>${{fmtNum(sP)}}</td><td>${{fmt(sCpp)}}</td>`;
     tbody.appendChild(tr);
     grandBudget += sB; grandCost += sC; grandValue += sV; grandPurchases += sP;
     buffer = [];
@@ -279,8 +281,13 @@ Object.keys(groupedCampaigns).sort((a,b) => a - b).forEach(gKey => {{
     const tr = document.createElement("tr");
     tr.className = "campaign";
     const isMobile = window.innerWidth <= 768;
-      const displayName = isMobile ? c.name.replace(/\s*\$[\d,]+\s*$/, "") : c.name;
-      tr.innerHTML = `<td><span class="caret"></span>${{displayName}}</td><td>${{fmt(c.budget)}}</td><td>${{fmt(c.cost)}}</td><td>${{fmt(c.value)}}</td><td>${{fmtRoas(c.roas)}}</td><td>${{fmtNum(c.purchases)}}</td><td>${{fmt(c.cpp)}}</td>`;
+      let displayName = c.name;
+      if (isMobile) {{
+        displayName = displayName.replace(/\s*\$[\d,]+\s*$/, "");  // 去掉預算
+        displayName = displayName.replace(/\s*(晚上場|中午場)/, "<br>$1");  // 晚上場/中午場換行
+      }}
+      const roasFmt = isMobile ? (c.roas == null || !isFinite(c.roas) ? "—" : c.roas.toFixed(2)) : fmtRoas(c.roas);
+      tr.innerHTML = `<td><span class="caret"></span>${{displayName}}</td><td>${{fmt(c.budget)}}</td><td>${{fmt(c.cost)}}</td><td>${{fmt(c.value)}}</td><td>${{roasFmt}}</td><td>${{fmtNum(c.purchases)}}</td><td>${{fmt(c.cpp)}}</td>`;
     tbody.appendChild(tr);
     c.adsets.forEach(a => {{
       const trA = document.createElement("tr");
@@ -855,22 +862,21 @@ APP_TEMPLATE = """<!DOCTYPE html>
     .compare-stats {{ grid-template-columns: 1fr !important; }}
 
     /* 活動明細表壓縮 + 隱藏 CPP */
-    /* 縮小 main / card 的 padding 給表格更多空間 */
-    .main {{ padding: 14px 6px 24px; }}
-    .card {{ padding: 14px 10px; }}
-    .roi-table {{ font-size: 10px; table-layout: fixed; width: 100%; }}
-    .roi-table th, .roi-table td {{ padding: 5px 1px; white-space: nowrap; overflow: hidden; text-overflow: clip; }}
-    .roi-table th {{ font-size: 9px; }}
-    /* 明確欄寬：活動名稱寬一點，數字欄按需要分配 */
-    .roi-table th:nth-child(1), .roi-table td:nth-child(1) {{ width: 27%; padding-left: 4px; padding-right: 2px; font-size: 10px; white-space: normal; word-break: break-word; line-height: 1.3; }}
-    .roi-table th:nth-child(2), .roi-table td:nth-child(2) {{ width: 13%; }}
+    .main {{ padding: 14px 4px 24px; }}
+    .card {{ padding: 14px 8px; }}
+    .roi-table {{ font-size: 9px; table-layout: fixed; width: 100%; }}
+    .roi-table th, .roi-table td {{ padding: 5px 1px; white-space: nowrap; }}
+    .roi-table th {{ font-size: 8.5px; }}
+    /* 第一欄活動名稱：允許換行 */
+    .roi-table th:nth-child(1), .roi-table td:nth-child(1) {{ width: 26%; padding-left: 4px; padding-right: 2px; font-size: 9.5px; white-space: normal; word-break: break-word; line-height: 1.3; }}
+    .roi-table th:nth-child(2), .roi-table td:nth-child(2) {{ width: 12%; }}
     .roi-table th:nth-child(3), .roi-table td:nth-child(3) {{ width: 13%; }}
-    .roi-table th:nth-child(4), .roi-table td:nth-child(4) {{ width: 20%; }}
-    .roi-table th:nth-child(5), .roi-table td:nth-child(5) {{ width: 13%; }}
-    .roi-table th:nth-child(6), .roi-table td:nth-child(6) {{ width: 14%; }}
+    .roi-table th:nth-child(4), .roi-table td:nth-child(4) {{ width: 22%; }}
+    .roi-table th:nth-child(5), .roi-table td:nth-child(5) {{ width: 12%; }}
+    .roi-table th:nth-child(6), .roi-table td:nth-child(6) {{ width: 15%; }}
     /* 隱藏 CPP 欄（第 7 欄） */
     .roi-table th:nth-child(7), .roi-table td:nth-child(7) {{ display: none; }}
-    /* 總計第一欄允許換行（總計 / (9 檔)） */
+    /* 總計第一欄允許換行 */
     .roi-table tr.total td:first-child {{ white-space: normal; line-height: 1.3; }}
     .tx-table {{ font-size: 12.5px; }}
   }}
@@ -1145,8 +1151,10 @@ function renderRoi() {{
       }} else label = list[0].groupLabel;
       const tr = document.createElement('tr');
       tr.className = 'subtotal' + (groupHasMixed ? ' ' + curCat : '');
-      const dispLabel = (window.innerWidth <= 768) ? "小計" : label;
-      tr.innerHTML = `<td>${{dispLabel}}</td><td>${{fmt(sB)}}</td><td>${{fmt(sC)}}</td><td>${{fmt(sV)}}</td><td>${{fmtRoas(sR)}}</td><td>${{fmtNum(sP)}}</td><td>${{fmt(sCpp)}}</td>`;
+      const isMobileSub = window.innerWidth <= 768;
+      const dispLabel = isMobileSub ? "小計" : label;
+      const subRoasFmt = isMobileSub ? (sR == null || !isFinite(sR) ? "—" : sR.toFixed(2)) : fmtRoas(sR);
+      tr.innerHTML = `<td>${{dispLabel}}</td><td>${{fmt(sB)}}</td><td>${{fmt(sC)}}</td><td>${{fmt(sV)}}</td><td>${{subRoasFmt}}</td><td>${{fmtNum(sP)}}</td><td>${{fmt(sCpp)}}</td>`;
       tbody.appendChild(tr);
       gB += sB; gC += sC; gV += sV; gP += sP;
       buf = [];
@@ -1156,8 +1164,13 @@ function renderRoi() {{
       curCat = c.category;
       const tr = document.createElement('tr'); tr.className = 'campaign';
       const isMobile = window.innerWidth <= 768;
-      const displayName = isMobile ? c.name.replace(/\s*\$[\d,]+\s*$/, "") : c.name;
-      tr.innerHTML = `<td><span class="caret"></span>${{displayName}}</td><td>${{fmt(c.budget)}}</td><td>${{fmt(c.cost)}}</td><td>${{fmt(c.value)}}</td><td>${{fmtRoas(c.roas)}}</td><td>${{fmtNum(c.purchases)}}</td><td>${{fmt(c.cpp)}}</td>`;
+      let displayName = c.name;
+      if (isMobile) {{
+        displayName = displayName.replace(/\s*\$[\d,]+\s*$/, "");  // 去掉預算
+        displayName = displayName.replace(/\s*(晚上場|中午場)/, "<br>$1");  // 晚上場/中午場換行
+      }}
+      const roasFmt = isMobile ? (c.roas == null || !isFinite(c.roas) ? "—" : c.roas.toFixed(2)) : fmtRoas(c.roas);
+      tr.innerHTML = `<td><span class="caret"></span>${{displayName}}</td><td>${{fmt(c.budget)}}</td><td>${{fmt(c.cost)}}</td><td>${{fmt(c.value)}}</td><td>${{roasFmt}}</td><td>${{fmtNum(c.purchases)}}</td><td>${{fmt(c.cpp)}}</td>`;
       tbody.appendChild(tr);
       c.adsets.forEach(a => {{
         const trA = document.createElement('tr'); trA.className = 'adset';
@@ -1175,8 +1188,10 @@ function renderRoi() {{
   }});
   const grandRoas = gC > 0 ? gV/gC : null, grandCpp = gP > 0 ? gC/gP : null;
   const trT = document.createElement('tr'); trT.className = 'total';
-  const totalLabel = (window.innerWidth <= 768) ? `總計<br>(${{campaigns.length}} 檔)` : `總計（${{campaigns.length}} 檔）`;
-  trT.innerHTML = `<td>${{totalLabel}}</td><td>${{fmt(gB)}}</td><td>${{fmt(gC)}}</td><td>${{fmt(gV)}}</td><td>${{fmtRoas(grandRoas)}}</td><td>${{fmtNum(gP)}}</td><td>${{fmt(grandCpp)}}</td>`;
+  const isMobileTot = window.innerWidth <= 768;
+  const totalLabel = isMobileTot ? `總計<br>(${{campaigns.length}} 檔)` : `總計（${{campaigns.length}} 檔）`;
+  const totRoasFmt = isMobileTot ? (grandRoas == null || !isFinite(grandRoas) ? "—" : grandRoas.toFixed(2)) : fmtRoas(grandRoas);
+  trT.innerHTML = `<td>${{totalLabel}}</td><td>${{fmt(gB)}}</td><td>${{fmt(gC)}}</td><td>${{fmt(gV)}}</td><td>${{totRoasFmt}}</td><td>${{fmtNum(gP)}}</td><td>${{fmt(grandCpp)}}</td>`;
   tbody.appendChild(trT);
 
   // Charts

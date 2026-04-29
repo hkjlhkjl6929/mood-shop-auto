@@ -755,7 +755,7 @@ APP_TEMPLATE = """<!DOCTYPE html>
   .roi-table tr.adset.show {{ display: table-row; }}
   .roi-table tr.adset td {{ color: #475569; padding: 5px 10px; border-bottom: 1px solid #eef1f4; }}
   .roi-table tr.adset td:first-child {{ text-align: left; padding-left: 34px; font-weight: 400; color: #64748b; }}
-  .roi-table tr.subtotal {{ font-weight: 700; }}
+  .roi-table tr.subtotal {{ font-weight: 700; background: #eff6ff; }} .roi-table tr.subtotal td {{ color: #1e3a8a; border-top: 1px solid #bfdbfe; border-bottom: 1px solid #bfdbfe; font-size: 11.5px; }}
   .roi-table tr.subtotal.apparel {{ background: #fef3c7; }}
   .roi-table tr.subtotal.apparel td {{ color: #78350f; border-top: 1px solid #fde68a; }}
   .roi-table tr.subtotal.other {{ background: #eff6ff; }}

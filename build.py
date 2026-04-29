@@ -2,7 +2,10 @@
 Mood Shop 廣告成效自動化建置腳本
 透過 Facebook Marketing API 抓取資料，生成所有月份的 HTML 報表。
 v2: 改用 Python 端過濾，避開 FB API STARTS_WITH 限制。
+v3: CSV-based billing + retry + sidebar layout.
 """
+import sys
+print("[BOOT] build.py started, Python", sys.version.split()[0], flush=True)
 import os
 import re
 import json
@@ -135,55 +138,76 @@ def fetch_insights(month, year, end_date):
 
 
 def fetch_transactions(month, year):
-    """讀取 transactions/YYYY-MM.csv（從 FB Ads Manager 下載的發票摘要）
-    格式範例：
-      日期,交易編號,付款方式,金額,幣別
-      2026/4/21,xxx,Visa ···· 5208,"8,873",TWD
+    """讀 transactions/YYYY-MM.csv，支援 FB 兩種格式：
+    格式 A（多張卡）：日期,交易編號,付款方式,金額,幣別 (5 欄)
+    格式 B（單張卡）：付款方式：xxx ···· NNNN (頭) + 日期,交易編號,金額,幣別 (4 欄)
     """
     import csv
     csv_path = os.path.join("transactions", f"{year}-{month:02d}.csv")
     if not os.path.exists(csv_path):
         print(f"  [INFO] CSV not found: {csv_path}")
-        print(f"         Upload {year}-{month:02d}.csv to transactions/ folder to enable billing")
         return []
 
     rows = []
-    cards_seen = {}  # last4 -> total amount (for diagnostic)
+    cards_seen = {}
+    current_card = None  # for single-card section header
+    cols_count = 0
+    in_data = False
+
     with open(csv_path, "r", encoding="utf-8-sig") as f:
         reader = csv.reader(f)
-        in_data = False
         for r in reader:
-            if len(r) >= 5 and r[0].strip() == "日期":
+            if not r:
+                continue
+            first = r[0].strip()
+            # Single-card section: "付款方式：萬事達卡 ···· 2202"
+            if first.startswith("付款方式：") or first.startswith("付款方式:"):
+                m_c = re.search(r"(\d{4})", first)
+                if m_c:
+                    current_card = m_c.group(1)
+                in_data = False
+                continue
+            # Header row: 日期,交易編號,...
+            if first == "日期":
+                cols_count = len(r)
                 in_data = True
                 continue
-            if not in_data or len(r) < 5:
+            if not in_data:
                 continue
-            date = r[0].strip()
-            payment = r[2].strip()
-            amount_str = r[3].strip().replace(",", "")
-            # Skip total row (date is empty)
-            if not date:
+            # Empty date row (total row, etc.)
+            if not first:
                 continue
-            # Extract card last 4 (after "···· ")
-            m_card = re.search(r"(\d{4})\s*$", payment)
-            card4 = m_card.group(1) if m_card else None
+            date = first
             try:
+                if cols_count >= 5:
+                    # Format A: multi-card
+                    payment = r[2].strip()
+                    amount_str = r[3].strip().replace(",", "")
+                    m_card = re.search(r"(\d{4})\s*$", payment)
+                    card4 = m_card.group(1) if m_card else None
+                elif cols_count == 4:
+                    # Format B: single-card (use current_card)
+                    amount_str = r[2].strip().replace(",", "")
+                    card4 = current_card
+                    payment = f"末4碼 {current_card}" if current_card else "?"
+                else:
+                    continue
                 amount = float(amount_str)
-            except ValueError:
+            except (ValueError, IndexError):
                 continue
             cards_seen[card4 or "?"] = cards_seen.get(card4 or "?", 0) + amount
             rows.append({
-                "date": date.replace("/", "-"),  # 2026/4/21 → 2026-4-21
+                "date": date.replace("/", "-"),
                 "amount": int(round(amount)),
                 "card": card4 or "?",
                 "payment_method": payment,
                 "status": "已付款",
             })
+
     print(f"  [CSV] Read {len(rows)} transactions from {csv_path}")
     if cards_seen:
-        sorted_cards = sorted(cards_seen.items(), key=lambda x: -x[1])
-        cards_str = ", ".join(f"{c}:${int(round(a)):,}" for c, a in sorted_cards)
-        print(f"  [CSV] Cards seen: {cards_str}")
+        s = ", ".join(f"{c}:${int(round(a)):,}" for c, a in sorted(cards_seen.items(), key=lambda x: -x[1]))
+        print(f"  [CSV] Cards seen: {s}")
     return rows
 
 

@@ -261,7 +261,8 @@ Object.keys(groupedCampaigns).sort((a,b) => a - b).forEach(gKey => {{
 
     const tr = document.createElement("tr");
     tr.className = "subtotal" + (groupHasMixed ? " " + currentCat : "");
-    tr.innerHTML = `<td>${{label}}</td><td>${{fmt(sB)}}</td><td>${{fmt(sC)}}</td><td>${{fmt(sV)}}</td><td>${{fmtRoas(sR)}}</td><td>${{fmtNum(sP)}}</td><td>${{fmt(sCpp)}}</td>`;
+    const dispLabel = (window.innerWidth <= 768) ? "小計" : label;
+      tr.innerHTML = `<td>${{dispLabel}}</td><td>${{fmt(sB)}}</td><td>${{fmt(sC)}}</td><td>${{fmt(sV)}}</td><td>${{fmtRoas(sR)}}</td><td>${{fmtNum(sP)}}</td><td>${{fmt(sCpp)}}</td>`;
     tbody.appendChild(tr);
     grandBudget += sB; grandCost += sC; grandValue += sV; grandPurchases += sP;
     buffer = [];
@@ -277,7 +278,9 @@ Object.keys(groupedCampaigns).sort((a,b) => a - b).forEach(gKey => {{
     // Render campaign row
     const tr = document.createElement("tr");
     tr.className = "campaign";
-    tr.innerHTML = `<td><span class="caret"></span>${{c.name}}</td><td>${{fmt(c.budget)}}</td><td>${{fmt(c.cost)}}</td><td>${{fmt(c.value)}}</td><td>${{fmtRoas(c.roas)}}</td><td>${{fmtNum(c.purchases)}}</td><td>${{fmt(c.cpp)}}</td>`;
+    const isMobile = window.innerWidth <= 768;
+      const displayName = isMobile ? c.name.replace(/\s*\$[\d,]+\s*$/, "") : c.name;
+      tr.innerHTML = `<td><span class="caret"></span>${{displayName}}</td><td>${{fmt(c.budget)}}</td><td>${{fmt(c.cost)}}</td><td>${{fmt(c.value)}}</td><td>${{fmtRoas(c.roas)}}</td><td>${{fmtNum(c.purchases)}}</td><td>${{fmt(c.cpp)}}</td>`;
     tbody.appendChild(tr);
     c.adsets.forEach(a => {{
       const trA = document.createElement("tr");
@@ -853,9 +856,11 @@ APP_TEMPLATE = """<!DOCTYPE html>
 
     /* 活動明細表壓縮 + 隱藏 CPP（最後一欄） */
     .roi-table {{ font-size: 10.5px; table-layout: fixed; width: 100%; }}
-    .roi-table th, .roi-table td {{ padding: 5px 2px; white-space: normal; word-break: break-word; }}
+    .roi-table th, .roi-table td {{ padding: 5px 2px; white-space: nowrap; }}
     .roi-table th {{ font-size: 9.5px; }}
-    .roi-table td:first-child, .roi-table th:first-child {{ font-size: 11px; padding-left: 6px; padding-right: 4px; }}
+    /* 第一欄（活動名稱）允許換行 */
+    .roi-table td:first-child {{ font-size: 11px; padding-left: 6px; padding-right: 4px; white-space: normal; word-break: break-word; line-height: 1.3; }}
+    .roi-table th:first-child {{ font-size: 9.5px; padding-left: 6px; }}
     /* 隱藏 CPP 欄（第 7 欄） */
     .roi-table th:nth-child(7), .roi-table td:nth-child(7) {{ display: none; }}
     .tx-table {{ font-size: 12.5px; }}
@@ -1131,7 +1136,8 @@ function renderRoi() {{
       }} else label = list[0].groupLabel;
       const tr = document.createElement('tr');
       tr.className = 'subtotal' + (groupHasMixed ? ' ' + curCat : '');
-      tr.innerHTML = `<td>${{label}}</td><td>${{fmt(sB)}}</td><td>${{fmt(sC)}}</td><td>${{fmt(sV)}}</td><td>${{fmtRoas(sR)}}</td><td>${{fmtNum(sP)}}</td><td>${{fmt(sCpp)}}</td>`;
+      const dispLabel = (window.innerWidth <= 768) ? "小計" : label;
+      tr.innerHTML = `<td>${{dispLabel}}</td><td>${{fmt(sB)}}</td><td>${{fmt(sC)}}</td><td>${{fmt(sV)}}</td><td>${{fmtRoas(sR)}}</td><td>${{fmtNum(sP)}}</td><td>${{fmt(sCpp)}}</td>`;
       tbody.appendChild(tr);
       gB += sB; gC += sC; gV += sV; gP += sP;
       buf = [];
@@ -1140,7 +1146,9 @@ function renderRoi() {{
       if (curCat !== null && c.category !== curCat) flush();
       curCat = c.category;
       const tr = document.createElement('tr'); tr.className = 'campaign';
-      tr.innerHTML = `<td><span class="caret"></span>${{c.name}}</td><td>${{fmt(c.budget)}}</td><td>${{fmt(c.cost)}}</td><td>${{fmt(c.value)}}</td><td>${{fmtRoas(c.roas)}}</td><td>${{fmtNum(c.purchases)}}</td><td>${{fmt(c.cpp)}}</td>`;
+      const isMobile = window.innerWidth <= 768;
+      const displayName = isMobile ? c.name.replace(/\s*\$[\d,]+\s*$/, "") : c.name;
+      tr.innerHTML = `<td><span class="caret"></span>${{displayName}}</td><td>${{fmt(c.budget)}}</td><td>${{fmt(c.cost)}}</td><td>${{fmt(c.value)}}</td><td>${{fmtRoas(c.roas)}}</td><td>${{fmtNum(c.purchases)}}</td><td>${{fmt(c.cpp)}}</td>`;
       tbody.appendChild(tr);
       c.adsets.forEach(a => {{
         const trA = document.createElement('tr'); trA.className = 'adset';

@@ -6,6 +6,7 @@ TEMPLATE = """<!DOCTYPE html>
 <meta charset="UTF-8">
 <title>{title}</title>
 <meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
 <style>
   :root {{ color-scheme: light; }}
@@ -488,6 +489,7 @@ def build_index(totals_by_month, months, year, current_month, last_updated=None)
 <meta charset="UTF-8">
 <title>Mood Shop 廣告成效總覽</title>
 <meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
 """
 
@@ -645,6 +647,7 @@ APP_TEMPLATE = """<!DOCTYPE html>
 <meta charset="UTF-8">
 <title>Mood Shop 廣告報表</title>
 <meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
 <style>
   * {{ box-sizing: border-box; }}
@@ -771,6 +774,11 @@ APP_TEMPLATE = """<!DOCTYPE html>
 </style>
 </head>
 <body>
+<div class="mobile-header">
+  <div class="mh-title">Mood Shop 廣告報表</div>
+  <button class="hamburger" id="hamburgerBtn" aria-label="選單"><span></span><span></span><span></span></button>
+</div>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
 <div class="app">
   <aside class="sidebar">
     <div class="brand"><h1>Mood Shop 廣告報表</h1><p>{year} 年</p></div>
@@ -843,6 +851,18 @@ APP_TEMPLATE = """<!DOCTYPE html>
 const APP = {js_data};
 let state = {{ section: 'overview', month: APP.currentMonth }};
 
+// Hamburger toggle for mobile
+const hamburgerBtn = document.getElementById('hamburgerBtn');
+const sidebar = document.querySelector('.sidebar');
+const overlay = document.getElementById('sidebarOverlay');
+function toggleSidebar(force) {{
+  const open = force !== undefined ? force : !sidebar.classList.contains('open');
+  sidebar.classList.toggle('open', open);
+  overlay.classList.toggle('show', open);
+}}
+if (hamburgerBtn) hamburgerBtn.addEventListener('click', () => toggleSidebar());
+if (overlay) overlay.addEventListener('click', () => toggleSidebar(false));
+
 const fmt = n => n == null ? '—' : '$' + Math.round(n).toLocaleString();
 const fmtNum = n => n == null ? '—' : Math.round(n).toLocaleString();
 const fmtRoas = n => n == null || !isFinite(n) ? '—' : n.toFixed(2) + 'x';
@@ -851,6 +871,7 @@ const fmtRoas = n => n == null || !isFinite(n) ? '—' : n.toFixed(2) + 'x';
 document.querySelectorAll('.sb-tab').forEach(tab => {{
   tab.addEventListener('click', () => {{
     state.section = tab.dataset.section;
+    toggleSidebar(false);  // close drawer on mobile
     render();
   }});
 }});

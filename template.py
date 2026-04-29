@@ -862,13 +862,13 @@ APP_TEMPLATE = """<!DOCTYPE html>
     .compare-stats {{ grid-template-columns: 1fr !important; }}
 
     /* 活動明細表壓縮 + 隱藏 CPP */
-    .main {{ padding: 14px 4px 24px; }}
-    .card {{ padding: 14px 8px; }}
-    .roi-table {{ font-size: 9px; table-layout: fixed; width: 100%; }}
-    .roi-table th, .roi-table td {{ padding: 5px 1px; white-space: nowrap; }}
-    .roi-table th {{ font-size: 8.5px; }}
+    .main {{ padding: 14px 6px 24px; }}
+    .card {{ padding: 14px 10px; }}
+    .roi-table {{ font-size: 10.5px; table-layout: fixed; width: 100%; }}
+    .roi-table th, .roi-table td {{ padding: 5px 2px; white-space: nowrap; }}
+    .roi-table th {{ font-size: 9.5px; }}
     /* 第一欄活動名稱：允許換行 */
-    .roi-table th:nth-child(1), .roi-table td:nth-child(1) {{ width: 26%; padding-left: 4px; padding-right: 2px; font-size: 9.5px; white-space: normal; word-break: break-word; line-height: 1.3; }}
+    .roi-table th:nth-child(1), .roi-table td:nth-child(1) {{ width: 26%; padding-left: 4px; padding-right: 2px; font-size: 10.5px; white-space: normal; word-break: break-word; line-height: 1.3; }}
     .roi-table th:nth-child(2), .roi-table td:nth-child(2) {{ width: 12%; }}
     .roi-table th:nth-child(3), .roi-table td:nth-child(3) {{ width: 13%; }}
     .roi-table th:nth-child(4), .roi-table td:nth-child(4) {{ width: 22%; }}
@@ -876,8 +876,11 @@ APP_TEMPLATE = """<!DOCTYPE html>
     .roi-table th:nth-child(6), .roi-table td:nth-child(6) {{ width: 15%; }}
     /* 隱藏 CPP 欄（第 7 欄） */
     .roi-table th:nth-child(7), .roi-table td:nth-child(7) {{ display: none; }}
+    /* 小計 + 總計列：字體縮小才放得下大數字 */
+    .roi-table tr.subtotal td, .roi-table tr.total td {{ font-size: 8.5px; padding: 5px 1px; }}
     /* 總計第一欄允許換行 */
-    .roi-table tr.total td:first-child {{ white-space: normal; line-height: 1.3; }}
+    .roi-table tr.total td:first-child {{ white-space: normal; line-height: 1.3; font-size: 9px; }}
+    .roi-table tr.subtotal td:first-child {{ font-size: 9.5px; }}
     .tx-table {{ font-size: 12.5px; }}
   }}
 

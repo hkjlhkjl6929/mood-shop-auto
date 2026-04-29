@@ -771,6 +771,96 @@ APP_TEMPLATE = """<!DOCTYPE html>
   .tx-table {{ width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 8px; }}
   .tx-table th {{ background: #faf5ee; color: #6b6258; font-weight: 600; font-size: 11px; text-transform: uppercase; padding: 8px 12px; text-align: left; letter-spacing: 0.04em; }}
   .tx-table td {{ padding: 7px 12px; border-bottom: 1px solid #f0ebe0; }}
+
+  /* Mobile responsive */
+  .mobile-header {{ display: none; }}
+  .sidebar-overlay {{ display: none; }}
+
+  @media (max-width: 768px) {{
+    /* Mobile header bar */
+    .mobile-header {{
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; background: #faf5ee;
+      border-bottom: 1px solid #e5dfd2;
+      position: sticky; top: 0; z-index: 100;
+    }}
+    .mobile-header .mh-title {{
+      font-size: 15px; font-weight: 800; color: #2d2a26; white-space: nowrap;
+    }}
+    .hamburger {{
+      width: 36px; height: 36px; border: none; background: transparent;
+      cursor: pointer; padding: 0; display: flex; flex-direction: column;
+      justify-content: center; align-items: center; gap: 4px;
+    }}
+    .hamburger span {{
+      display: block; width: 22px; height: 2px; background: #2d2a26;
+      border-radius: 1px;
+    }}
+
+    /* Sidebar 變右側抽屜 */
+    .app {{ flex-direction: column; }}
+    .sidebar {{
+      position: fixed; top: 0; right: 0; left: auto; height: 100vh;
+      width: 260px; max-width: 80vw;
+      transform: translateX(100%); transition: transform 0.25s ease;
+      z-index: 200; overflow-y: auto;
+      box-shadow: -2px 0 12px rgba(0,0,0,0.15);
+      border-right: none; border-left: 1px solid #e5dfd2;
+    }}
+    .sidebar.open {{ transform: translateX(0); }}
+
+    /* Backdrop */
+    .sidebar-overlay {{
+      display: block; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4); opacity: 0; pointer-events: none;
+      transition: opacity 0.25s ease; z-index: 150;
+    }}
+    .sidebar-overlay.show {{ opacity: 1; pointer-events: auto; }}
+
+    /* Main content */
+    .main {{ padding: 16px 14px 24px; }}
+    .page-title {{ font-size: 19px; }}
+    .page-subtitle {{ font-size: 12px; }}
+
+    /* KPI 2 col */
+    .kpi-row {{ grid-template-columns: 1fr 1fr !important; gap: 8px; }}
+    .kpi-row.five {{ grid-template-columns: 1fr 1fr !important; }}
+    .kpi {{ padding: 12px 14px; }}
+    .kpi-label {{ font-size: 10px; }}
+    .kpi-value {{ font-size: 18px; }}
+
+    /* YTD 1 col */
+    .ytd-primary {{ grid-template-columns: 1fr; gap: 14px; }}
+    .ytd-primary .yp-value {{ font-size: 24px; }}
+    .ytd-secondary {{ flex-direction: column; gap: 8px; font-size: 13px; }}
+    .ytd-secondary .sep {{ display: none; }}
+
+    /* Month cards */
+    .month-kpis-row {{ grid-template-columns: 1fr 1fr !important; }}
+    .mc-stats {{ grid-template-columns: 1fr 1fr 1fr !important; gap: 8px; }}
+    .mc-val {{ font-size: 13px; }}
+
+    /* Compare 1 col */
+    .compare-wrap {{ grid-template-columns: 1fr; }}
+    .chart-container {{ height: 220px; }}
+    .chart-container.tall {{ height: 280px; }}
+
+    /* Month picker scroll */
+    .month-picker {{ overflow-x: auto; max-width: 100%; }}
+
+    /* Table font */
+    .roi-table {{ font-size: 12px; }}
+    .roi-table th, .roi-table td {{ padding: 6px 4px; }}
+    .tx-table {{ font-size: 12.5px; }}
+  }}
+
+  @media (max-width: 480px) {{
+    .kpi-row {{ grid-template-columns: 1fr 1fr !important; }}
+    .kpi-row.five {{ grid-template-columns: 1fr !important; }}
+    .mc-stats {{ grid-template-columns: 1fr 1fr !important; }}
+    .page-title {{ font-size: 17px; }}
+    .ytd-primary .yp-value {{ font-size: 22px; }}
+  }}
 </style>
 </head>
 <body>

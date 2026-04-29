@@ -686,7 +686,7 @@ APP_TEMPLATE = """<!DOCTYPE html>
   .card {{ background: #fff; border: 1px solid #e7e2d6; border-radius: 10px; padding: 22px 26px; margin-bottom: 16px; }}
   .card h2 {{ font-size: 14px; margin: 0 0 14px; color: #1a1a1a; font-weight: 700; }}
   .card .hint {{ font-size: 11px; color: #9c9489; font-weight: 400; margin-left: 8px; }}
-  .ytd-banner {{ background: linear-gradient(135deg, #faf5ee, #fff); border: 1px solid #e7e2d6; border-radius: 12px; padding: 24px 30px; margin-bottom: 18px; }}
+  .ytd-banner {{ background: #fff; border: 1px solid #e7e2d6; border-radius: 12px; padding: 24px 30px; margin-bottom: 18px; }}
   .ytd-title {{ font-size: 11px; color: #8a8170; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 16px; font-weight: 600; }}
   .ytd-primary {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; padding-bottom: 14px; border-bottom: 1px solid #ebe5d6; margin-bottom: 12px; }}
   .ytd-primary .yp-label {{ font-size: 10px; color: #8a8170; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }}
@@ -703,7 +703,7 @@ APP_TEMPLATE = """<!DOCTYPE html>
   .months-grid {{ display: grid; grid-template-columns: 1fr; gap: 12px; }}
   .month-card {{ background: #fff; border: 1px solid #e7e2d6; border-radius: 10px; padding: 18px 24px; text-decoration: none; color: inherit; cursor: pointer; transition: all 0.15s; display: block; }}
   .month-card:hover {{ border-color: #d97706; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }}
-  .month-card.current {{ border: 2px solid #d97706; background: linear-gradient(to right, #fff, #fef9f0); }}
+  .month-card.current {{ border: 2px solid #d97706; background: #fff; }}
   .mc-head {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }}
   .mc-title {{ font-size: 17px; font-weight: 700; color: #1a1a1a; }}
   .mc-arrow {{ font-size: 18px; color: #b0a48f; }}
@@ -1168,7 +1168,7 @@ function renderCard() {{
 function renderTotal() {{
   const m = APP.months[state.month]; const b = m.billing;
   document.getElementById('total-content').innerHTML = `
-    <div class="card" style="text-align:center; padding:42px; background:linear-gradient(to bottom right, #fef9f0, #fff);">
+    <div class="card" style="text-align:center; padding:42px; background:#fff;">
       <div style="font-size:12px; color:#8a8170; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.06em; font-weight:600;">${{state.month}} 月應請款合計</div>
       <div style="font-size:54px; font-weight:800; color:#c2410c; letter-spacing:-0.02em; line-height:1;">${{fmt(b.grand_total)}}</div>
       <div style="font-size:12px; color:#8a8170; margin-top:10px;">新台幣 NTD</div>

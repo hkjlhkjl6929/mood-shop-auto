@@ -7,6 +7,7 @@ TEMPLATE = """<!DOCTYPE html>
 <title>{title}</title>
 <meta name="robots" content="noindex,nofollow,noarchive">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/png" href="logo.png">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
 <style>
   :root {{ color-scheme: light; }}
@@ -500,6 +501,7 @@ def build_index(totals_by_month, months, year, current_month, last_updated=None)
 <title>Mood Shop 廣告成效總覽</title>
 <meta name="robots" content="noindex,nofollow,noarchive">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/png" href="logo.png">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
 """
 
@@ -658,6 +660,7 @@ APP_TEMPLATE = """<!DOCTYPE html>
 <title>Mood Shop 廣告報表</title>
 <meta name="robots" content="noindex,nofollow,noarchive">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/png" href="logo.png">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
 <style>
   * {{ box-sizing: border-box; }}

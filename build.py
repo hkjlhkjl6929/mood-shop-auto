@@ -520,12 +520,6 @@ def main():
         f.write(app_html)
     print(f"\n[OK] index.html (single-page app) with {len(totals_by_month)} months")
 
-    # Copy logo.png to site/ if it exists
-    import shutil
-    if os.path.exists("logo.png"):
-        shutil.copy("logo.png", f"{OUT_DIR}/logo.png")
-        print("[OK] logo.png copied to site/")
-
     # Privacy: prevent search engine indexing
     with open(f"{OUT_DIR}/robots.txt", "w", encoding="utf-8") as f:
         f.write("User-agent: *\nDisallow: /\n")

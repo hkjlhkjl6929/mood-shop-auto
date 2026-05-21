@@ -665,7 +665,8 @@ APP_TEMPLATE = """<!DOCTYPE html>
 <style>
   * {{ box-sizing: border-box; }}
   body {{ margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif; background: #f3f1ec; color: #1a1a1a; line-height: 1.5; }}
-  .app {{ display: flex; min-height: 100vh; }}
+  .app {{ display: flex; min-height: 100vh; visibility: hidden; }}
+  .app.ready {{ visibility: visible; }}
   .sidebar {{ width: 240px; flex-shrink: 0; background: #faf5ee; border-right: 1px solid #e5dfd2; padding: 28px 0 20px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }}
   .brand {{ padding: 0 24px 22px; border-bottom: 1px solid #ebe5d6; }}
   .brand h1 {{ font-size: 15px; margin: 0 0 4px; color: #2d2a26; font-weight: 800; letter-spacing: 0; white-space: nowrap; }}
@@ -1448,6 +1449,7 @@ function renderTotal() {{
 
 // Initial render
 render();
+document.querySelector('.app').classList.add('ready');
 </script>
 </body>
 </html>"""

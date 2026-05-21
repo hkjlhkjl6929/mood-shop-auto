@@ -982,7 +982,30 @@ APP_TEMPLATE = """<!DOCTYPE html>
 
 <script>
 const APP = {js_data};
-let state = {{ section: 'overview', month: APP.currentMonth }};
+const SECTIONS = ['overview', 'roi', 'fee', 'card', 'total'];
+
+function normalizeMonth(value) {{
+  const n = parseInt(value);
+  return APP.availableMonths.includes(n) ? n : APP.currentMonth;
+}}
+
+function loadSavedState() {{
+  try {{
+    const saved = JSON.parse(localStorage.getItem('moodShopState') || '{{}}');
+    return {{
+      section: SECTIONS.includes(saved.section) ? saved.section : 'overview',
+      month: normalizeMonth(saved.month)
+    }};
+  }} catch (e) {{
+    return {{ section: 'overview', month: APP.currentMonth }};
+  }}
+}}
+
+let state = loadSavedState();
+
+function saveState() {{
+  localStorage.setItem('moodShopState', JSON.stringify(state));
+}}
 
 // Hamburger toggle for mobile
 const hamburgerBtn = document.getElementById('hamburgerBtn');
@@ -1054,6 +1077,7 @@ function wireScreenshotButton(url) {{
 document.querySelectorAll('.sb-tab').forEach(tab => {{
   tab.addEventListener('click', () => {{
     state.section = tab.dataset.section;
+    saveState();
     toggleSidebar(false);  // close drawer on mobile
     render();
   }});
@@ -1074,6 +1098,7 @@ function render() {{
     mp.querySelectorAll('.month-tab').forEach(el => {{
       el.addEventListener('click', () => {{
         state.month = parseInt(el.dataset.m);
+        saveState();
         render();
       }});
     }});
@@ -1093,6 +1118,7 @@ document.querySelectorAll('.month-card').forEach(card => {{
   card.addEventListener('click', () => {{
     state.section = 'roi';
     state.month = parseInt(card.dataset.month);
+    saveState();
     render();
   }});
 }});
@@ -1357,16 +1383,9 @@ function renderFee() {{
 // ===== CARD render =====
 function renderCard() {{
   const m = APP.months[state.month]; const b = m.billing;
-  const shotUrl = screenshotUrl(state.month);
-  const txRows = b.transactions.map(t => `<tr><td>${{t.date}}</td><td>****-****-****-${{t.card}}</td><td style="text-align:right;">${{fmt(t.amount)}}</td></tr>`).join('');
-  document.getElementById('card-content').innerHTML = `
-    <div class="kpi-row" style="grid-template-columns: 1fr 1fr 1fr 1.2fr;">
-      <div class="kpi"><div class="kpi-label">代刷總金額</div><div class="kpi-value">${{fmt(b.card_total)}}</div></div>
-      <div class="kpi"><div class="kpi-label">國外手續費 1.5%</div><div class="kpi-value" style="color:#dc2626;">+${{fmt(b.foreign_fee)}}</div></div>
-      <div class="kpi"><div class="kpi-label">信用卡回饋 0.3%</div><div class="kpi-value" style="color:#16a34a;">-${{fmt(b.rebate)}}</div></div>
-      <div class="kpi amount"><div class="kpi-label">實際應付</div><div class="kpi-value">${{fmt(b.card_actual)}}</div></div>
-    </div>
-    <div class="card screenshot-card" id="card-screenshot-box" style="display:none;">
+  const shotUrl = m.screenshot || '';
+  const screenshotCard = shotUrl ? `
+    <div class="card screenshot-card" id="card-screenshot-box">
       <div class="screenshot-head">
         <div>
           <h2>Meta 刷卡截圖</h2>
@@ -1375,6 +1394,16 @@ function renderCard() {{
         <button class="shot-btn" type="button" data-shot="${{shotUrl}}">查看刷卡截圖</button>
       </div>
     </div>
+  ` : '';
+  const txRows = b.transactions.map(t => `<tr><td>${{t.date}}</td><td>****-****-****-${{t.card}}</td><td style="text-align:right;">${{fmt(t.amount)}}</td></tr>`).join('');
+  document.getElementById('card-content').innerHTML = `
+    <div class="kpi-row" style="grid-template-columns: 1fr 1fr 1fr 1.2fr;">
+      <div class="kpi"><div class="kpi-label">代刷總金額</div><div class="kpi-value">${{fmt(b.card_total)}}</div></div>
+      <div class="kpi"><div class="kpi-label">國外手續費 1.5%</div><div class="kpi-value" style="color:#dc2626;">+${{fmt(b.foreign_fee)}}</div></div>
+      <div class="kpi"><div class="kpi-label">信用卡回饋 0.3%</div><div class="kpi-value" style="color:#16a34a;">-${{fmt(b.rebate)}}</div></div>
+      <div class="kpi amount"><div class="kpi-label">實際應付</div><div class="kpi-value">${{fmt(b.card_actual)}}</div></div>
+    </div>
+    ${{screenshotCard}}
     <div class="card"><h2>計算明細</h2>
       <div class="billing">
         <div class="label">代刷總金額（已付款）</div><div class="value">${{fmt(b.card_total)}}</div>
@@ -1389,7 +1418,8 @@ function renderCard() {{
       `<table class="tx-table"><thead><tr><th>日期</th><th>付款方式</th><th style="text-align:right;">金額</th></tr></thead><tbody>${{txRows}}</tbody><tfoot><tr style="font-weight:800; background:#faf5ee;"><td colspan="2">合計</td><td style="text-align:right;">${{fmt(b.card_total)}}</td></tr></tfoot></table>`}}
     </div>
   `;
-  wireScreenshotButton(shotUrl);
+  const shotBtn = document.querySelector('#card-content [data-shot]');
+  if (shotBtn) shotBtn.addEventListener('click', () => openScreenshotModal(shotUrl));
 }}
 
 // ===== TOTAL render =====
@@ -1428,6 +1458,7 @@ def build_app(year, current_month, months_data, campaigns_by_month, available_mo
     """
     from datetime import datetime, timedelta
     import json as _json
+    import os
 
     if last_updated is None:
         last_updated = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
@@ -1438,6 +1469,7 @@ def build_app(year, current_month, months_data, campaigns_by_month, available_mo
         ym = f"{year}-{mm:02d}"
         d = months_data[ym]
         b = d.get("billing", {})
+        screenshot_file = f"screenshots/{ym}.png"
         months_for_js[str(mm)] = {
             "cost": d["cost"],
             "value": d["value"],
@@ -1445,6 +1477,7 @@ def build_app(year, current_month, months_data, campaigns_by_month, available_mo
             "roas": round(d["roas"], 4),
             "cpp": round(d["cpp"], 2),
             "count": d["count"],
+            "screenshot": screenshot_file if os.path.exists(screenshot_file) else "",
             "campaigns": campaigns_by_month.get(ym, {}).get("campaigns", []),
             "billing": {
                 "card_total": b.get("card_total", 0),
